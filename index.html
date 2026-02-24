@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GMC — Pipeline MIP</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --w:#fff;--off:#f5f5f7;--light:#e8e8ed;--mid:#c7c7cc;
+  --subtle:#6e6e73;--dark:#1d1d1f;--border:#d2d2d7;--bl:#e8e8ed;
+  --r:12px;--rs:8px;
+}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--off);color:var(--dark);-webkit-font-smoothing:antialiased;min-height:100vh}
+.hd{background:rgba(255,255,255,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--bl);padding:0 32px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200}
+.hd-t{font-size:15px;font-weight:600;letter-spacing:-.2px}.hd-sub{font-size:12px;color:var(--subtle);margin-left:10px}
+.hd-badge{font-size:11px;font-weight:500;color:var(--subtle);background:var(--light);padding:3px 10px;border-radius:20px}
+.lay{display:grid;grid-template-columns:308px 1fr;min-height:calc(100vh - 52px)}
+/* SIDEBAR */
+.sb{background:var(--w);border-right:1px solid var(--bl);overflow-y:auto;padding:20px 18px}
+.sb::-webkit-scrollbar{width:0}
+.slbl{font-size:10px;font-weight:600;color:var(--subtle);letter-spacing:.6px;text-transform:uppercase;margin:20px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--bl)}
+.slbl:first-child{margin-top:0}
+.sec-hd{font-size:11px;font-weight:600;color:var(--subtle);padding:5px 0 5px;margin-top:6px;letter-spacing:.2px}
+/* project cards */
+.pcard{border:1px solid var(--bl);border-radius:var(--rs);margin-bottom:7px;overflow:visible;transition:border-color .2s}
+.pcard.active{border-color:var(--dark)}
+.pcard.in-progress{border-color:var(--mid);border-style:dashed}
+.ph{padding:9px 11px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;gap:6px}
+.ph:hover{background:var(--off);border-radius:var(--rs) var(--rs) 0 0}
+.pname{font-size:12px;font-weight:600;color:var(--dark);line-height:1.2}
+.ptag{font-size:10px;color:var(--subtle);margin-top:1px}
+.pr{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.tgl{width:34px;height:20px;background:var(--border);border-radius:10px;position:relative;transition:background .2s;flex-shrink:0;cursor:pointer}
+.tgl.on{background:var(--dark)}
+.tgl::after{content:'';position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;top:2px;left:2px;transition:transform .22s cubic-bezier(.4,.2,.2,1.3);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.tgl.on::after{transform:translateX(14px)}
+/* quadrant badge — now a select */
+.qsel{font-size:9px;font-weight:700;letter-spacing:.3px;padding:2px 5px;border-radius:4px;text-transform:uppercase;border:none;cursor:pointer;font-family:inherit;appearance:none;-webkit-appearance:none}
+.q-a{background:var(--dark);color:#fff}
+.q-s{background:var(--light);color:var(--dark)}
+.q-m{background:var(--off);color:var(--subtle);border:1px solid var(--bl)!important}
+.q-p{background:var(--off);color:var(--mid);border:1px solid var(--bl)!important}
+.pb{display:none;padding:11px;border-top:1px solid var(--bl);background:var(--off)}
+.pcard.active .pb,.pcard.in-progress .pb{display:block}
+.pfl{font-size:10px;font-weight:600;color:var(--subtle);letter-spacing:.3px;text-transform:uppercase;margin-bottom:4px;margin-top:9px}
+.pfl:first-child{margin-top:0}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+.pi{font-size:11px;font-weight:500;background:var(--w);border:1px solid var(--border);border-radius:6px;padding:5px 7px;font-family:inherit;color:var(--dark);width:100%}
+.pi:focus{outline:none;border-color:var(--dark)}
+select.pi{appearance:none;cursor:pointer}
+.pi-hint{font-size:9px;color:var(--subtle);margin-top:2px;text-align:center}
+/* in-progress badge */
+.ip-tag{font-size:9px;font-weight:700;background:var(--light);color:var(--subtle);padding:2px 6px;border-radius:4px;letter-spacing:.3px;white-space:nowrap}
+/* fee rows */
+.fee-section{margin-bottom:10px}
+.fee-st{font-size:11px;font-weight:600;color:var(--dark);margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--bl)}
+.fee-row{display:flex;align-items:flex-start;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bl);gap:8px}
+.fee-row:last-child{border-bottom:none}
+.fee-info{flex:1;min-width:0}
+.fee-name{font-size:11px;font-weight:500;color:var(--dark)}
+.fee-desc{font-size:9px;color:var(--subtle);margin-top:1px;line-height:1.3}
+.fee-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.fv{font-size:11px;font-weight:600;background:var(--off);border:1px solid var(--border);border-radius:5px;padding:3px 6px;font-family:inherit;color:var(--dark);width:68px;text-align:right}
+.fv:focus{outline:none;border-color:var(--dark)}
+.ftgl{width:30px;height:18px;background:var(--border);border-radius:9px;position:relative;transition:background .2s;cursor:pointer}
+.ftgl.on{background:var(--dark)}
+.ftgl::after{content:'';position:absolute;width:14px;height:14px;background:#fff;border-radius:50%;top:2px;left:2px;transition:transform .18s;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.ftgl.on::after{transform:translateX(12px)}
+.mtag{font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;letter-spacing:.2px;background:var(--dark);color:#fff}
+.mtag.opt{background:var(--light);color:var(--subtle)}
+/* sliders */
+.ctl{padding:6px 0;border-bottom:1px solid var(--bl)}
+.ctl:last-child{border-bottom:none}
+.ctl-h{display:flex;justify-content:space-between;margin-bottom:4px}
+.ctl-n{font-size:11px;color:var(--dark)}
+.ctl-v{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;height:2px;appearance:none;background:var(--border);border-radius:1px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:15px;height:15px;background:var(--dark);border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.18);cursor:pointer}
+/* content */
+.cnt{overflow:auto;display:flex;flex-direction:column}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);background:var(--w);border-bottom:1px solid var(--bl)}
+.kpi{padding:15px 18px;border-right:1px solid var(--bl)}.kpi:last-child{border-right:none}
+.kpi-l{font-size:11px;font-weight:500;color:var(--subtle);margin-bottom:3px}
+.kpi-v{font-size:22px;font-weight:700;color:var(--dark);letter-spacing:-.8px;line-height:1;font-variant-numeric:tabular-nums}
+.kpi-s{font-size:10px;color:var(--subtle);margin-top:2px}
+.tabs{background:var(--w);border-bottom:1px solid var(--bl);padding:0 28px;display:flex}
+.tab{font-size:13px;font-weight:500;color:var(--subtle);padding:12px 14px;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;white-space:nowrap}
+.tab:hover{color:var(--dark)}.tab.on{color:var(--dark);border-bottom-color:var(--dark)}
+.area{flex:1;overflow:auto;padding:26px;background:var(--off)}
+.view{display:none}.view.on{display:block}
+.card{background:var(--w);border-radius:var(--r);border:1px solid var(--bl);padding:20px;margin-bottom:13px}
+.card-t{font-size:13px;font-weight:600;margin-bottom:3px;letter-spacing:-.1px}
+.card-s{font-size:12px;color:var(--subtle);margin-bottom:16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+/* bar chart */
+.bchart{display:flex;align-items:flex-end;gap:3px;height:130px}
+.bg{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:3px}
+.bw{width:100%;display:flex;gap:1px;justify-content:center;align-items:flex-end;flex:1}
+.bb{border-radius:2px 2px 0 0;min-height:0;transition:height .3s ease;position:relative;cursor:default}
+.bb:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:var(--dark);color:#fff;font-size:10px;padding:4px 7px;border-radius:5px;white-space:nowrap;font-family:inherit;z-index:99;pointer-events:none}
+.bl{font-size:9px;font-weight:500;color:var(--subtle);text-align:center;white-space:nowrap}
+.bv{font-size:9px;font-weight:600;text-align:center;font-variant-numeric:tabular-nums;color:var(--dark)}
+/* timeline */
+.tl-wrap{overflow-x:auto}
+.tl{min-width:1000px}
+.tl-hd{display:grid;background:var(--off);border:1px solid var(--bl);border-radius:var(--rs) var(--rs) 0 0}
+.tl-bd{border:1px solid var(--bl);border-top:none;border-radius:0 0 var(--rs) var(--rs);overflow:hidden}
+.tl-row{display:grid;border-bottom:1px solid var(--bl);background:var(--w)}
+.tl-row:last-child{border-bottom:none}
+.tl-row:hover{background:var(--off)}
+.tl-row.ip-row{background:#fafafa}
+.thc{padding:6px 5px;font-size:9px;font-weight:600;color:var(--subtle);letter-spacing:.4px;text-transform:uppercase;border-right:1px solid var(--bl);text-align:center}
+.thc:last-child{border-right:none}
+.tc{padding:4px 6px;font-size:11px;border-right:1px solid var(--bl);vertical-align:middle}
+.tc:last-child{border-right:none}
+.tnm{font-size:11px;font-weight:600;color:var(--dark);line-height:1.2}
+.ttag{font-size:9px;color:var(--subtle);margin-top:1px}
+.pill{border-radius:3px;padding:2px 0;font-size:8px;font-weight:700;text-align:center;letter-spacing:.2px;width:100%;display:block}
+.p-str{background:var(--dark);color:#fff}
+.p-dev{background:var(--mid);color:var(--dark)}
+.p-pre{background:var(--off);color:var(--subtle);border:1px solid var(--border)}
+.p-end{background:var(--light);color:var(--subtle)}
+.p-ip{background:var(--light);color:var(--dark);border:1px dashed var(--mid)}
+.p-cierre{background:var(--dark);color:#fff;opacity:.6}
+/* table */
+.dt{width:100%;border-collapse:collapse;font-size:11px}
+.dt th{font-size:9px;font-weight:600;color:var(--subtle);text-align:right;padding:7px 9px;background:var(--off);border-bottom:1px solid var(--border);border-top:1px solid var(--border);letter-spacing:.2px;position:sticky;top:0;white-space:nowrap}
+.dt th:first-child{text-align:left}
+.dt td{padding:6px 9px;text-align:right;border-bottom:1px solid var(--bl);color:var(--subtle);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dt td:first-child{text-align:left;color:var(--dark);font-weight:500}
+.dt tr:hover td{background:var(--off)}
+.dt .tot td{font-weight:700;color:var(--dark)!important;border-top:1px solid var(--border);border-bottom:2px solid var(--border);background:var(--w)}
+.dt .sep td{padding:4px 9px;background:var(--off);font-size:9px;font-weight:700;color:var(--subtle);text-transform:uppercase;letter-spacing:.5px}
+.pos{color:var(--dark)!important;font-weight:600!important}
+.neg{color:var(--mid)!important}
+.leg{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:13px}
+.li{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--subtle);font-weight:500}
+.ld{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.callout{background:var(--off);border:1px solid var(--bl);border-radius:var(--rs);padding:11px 15px;margin-bottom:13px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.ct{font-size:13px;font-weight:600}.cs{font-size:12px;color:var(--subtle);margin-top:1px}
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <div style="display:flex;align-items:center">
+    <span class="hd-t">GMC — Pipeline MIP</span>
+    <span class="hd-sub">Escenarios de rentabilidad 2026–2035</span>
+  </div>
+  <span class="hd-badge">v5 · Catálogo de fees</span>
+</div>
+
+<div class="lay">
+<div class="sb">
+
+<div class="slbl">Proyectos nuevos en pipeline</div>
+<div class="sec-hd" style="color:var(--subtle);font-size:10px;margin-bottom:6px">Activa para incluir en el modelo</div>
+<div id="proj-new"></div>
+
+<div class="slbl">Proyectos ya en proceso</div>
+<div class="sec-hd" style="color:var(--subtle);font-size:10px;margin-bottom:6px">Incluidos automáticamente · Solo ajusta supuestos</div>
+<div id="proj-ip"></div>
+
+<div class="slbl">Estructuración a Terceros</div>
+<div id="ext-sl"></div>
+
+<div class="slbl">Catálogo de Fees GMC</div>
+<div class="fee-section">
+  <div class="fee-st">Aplican al MIP — activados por defecto</div>
+  <div class="fee-row">
+    <div class="fee-info"><div class="fee-name">Estructuración de Proyectos</div><div class="fee-desc">% sobre equity total · Cobro único al cierre</div></div>
+    <div class="fee-right"><div style="display:flex;gap:4px;align-items:center"><span class="mtag">MIP</span><div class="ftgl on" id="ftg-estructura" onclick="tFee('estructura')"></div></div><input type="number" class="fv" id="fv-estructura" value="1.5" step="0.1" min="0" max="5" oninput="rc()"></div>
+  </div>
+  <div class="fee-row">
+    <div class="fee-info"><div class="fee-name">Adm. durante Desarrollo</div><div class="fee-desc">% anual sobre equity · Durante años en desarrollo</div></div>
+    <div class="fee-right"><div style="display:flex;gap:4px;align-items:center"><span class="mtag">MIP</span><div class="ftgl on" id="ftg-adm-dev" onclick="tFee('adm-dev')"></div></div><input type="number" class="fv" id="fv-adm-dev" value="1.0" step="0.1" min="0" max="5" oninput="rc()"></div>
+  </div>
+</div>
+<div class="fee-section">
+  <div class="fee-st">Palancas adicionales — activa para incluir en escenario</div>
+  <div class="fee-row">
+    <div class="fee-info"><div class="fee-name">Negociación FGM (éxito)</div><div class="fee-desc">% sobre valor excedente al mandato · Por proyecto</div></div>
+    <div class="fee-right"><div style="display:flex;gap:4px;align-items:center"><span class="mtag opt">Opcional</span><div class="ftgl" id="ftg-negoc" onclick="tFee('negoc')"></div></div><input type="number" class="fv" id="fv-negoc" value="30" step="1" min="0" max="50" oninput="rc()"></div>
+  </div>
+  <div class="fee-row">
+    <div class="fee-info"><div class="fee-name">Adm. Activos Productivos</div><div class="fee-desc">% renta / venta · Cuando activo entra en operación</div></div>
+    <div class="fee-right"><div style="display:flex;gap:4px;align-items:center"><span class="mtag opt">Opcional</span><div class="ftgl" id="ftg-aap" onclick="tFee('aap')"></div></div><input type="number" class="fv" id="fv-aap" value="5" step="0.5" min="0" max="10" oninput="rc()"></div>
+  </div>
+  <div class="fee-row">
+    <div class="fee-info"><div class="fee-name">Adm. Activos en Reserva</div><div class="fee-desc">% anual sobre ingresos del activo productivo</div></div>
+    <div class="fee-right"><div style="display:flex;gap:4px;align-items:center"><span class="mtag opt">Opcional</span><div class="ftgl" id="ftg-res" onclick="tFee('res')"></div></div><input type="number" class="fv" id="fv-res" value="0.5" step="0.05" min="0" max="2" oninput="rc()"></div>
+  </div>
+  <div class="fee-row">
+    <div class="fee-info"><div class="fee-name">Adm. Activos Rotativos (capital)</div><div class="fee-desc">% anual sobre capital invertido FGM</div></div>
+    <div class="fee-right"><div style="display:flex;gap:4px;align-items:center"><span class="mtag opt">Opcional</span><div class="ftgl" id="ftg-rot" onclick="tFee('rot')"></div></div><input type="number" class="fv" id="fv-rot" value="2.0" step="0.1" min="0" max="4" oninput="rc()"></div>
+  </div>
+  <div class="fee-row">
+    <div class="fee-info"><div class="fee-name">Adm. Rotativos (reserva territorial)</div><div class="fee-desc">% anual sobre valor reserva FGM</div></div>
+    <div class="fee-right"><div style="display:flex;gap:4px;align-items:center"><span class="mtag opt">Opcional</span><div class="ftgl" id="ftg-terr" onclick="tFee('terr')"></div></div><input type="number" class="fv" id="fv-terr" value="0.1" step="0.05" min="0" max="1" oninput="rc()"></div>
+  </div>
+  <div class="fee-row">
+    <div class="fee-info"><div class="fee-name">Adm. Cuentas de Inversión</div><div class="fee-desc">% anual sobre AUM administrado (cuentas HGMC4)</div></div>
+    <div class="fee-right"><div style="display:flex;gap:4px;align-items:center"><span class="mtag opt">Opcional</span><div class="ftgl" id="ftg-cta" onclick="tFee('cta')"></div></div><input type="number" class="fv" id="fv-cta" value="0.5" step="0.05" min="0" max="2" oninput="rc()"></div>
+  </div>
+</div>
+<div class="fee-section">
+  <div class="fee-st">Base para fees potenciales (MXN M)</div>
+  <div class="ctl"><div class="ctl-h"><span class="ctl-n">Capital FGM gestionado</span><span class="ctl-v" id="vb1">$3,000M</span></div><input type="range" id="sb1" min="500" max="10000" step="100" value="3000" oninput="document.getElementById('vb1').textContent='$'+this.value+'M';rc()"></div>
+  <div class="ctl"><div class="ctl-h"><span class="ctl-n">Valor reserva territorial</span><span class="ctl-v" id="vb2">$1,500M</span></div><input type="range" id="sb2" min="100" max="5000" step="100" value="1500" oninput="document.getElementById('vb2').textContent='$'+this.value+'M';rc()"></div>
+  <div class="ctl"><div class="ctl-h"><span class="ctl-n">AUM cuentas inversión</span><span class="ctl-v" id="vb3">$800M</span></div><input type="range" id="sb3" min="100" max="5000" step="100" value="800" oninput="document.getElementById('vb3').textContent='$'+this.value+'M';rc()"></div>
+</div>
+
+<div class="slbl">Gastos Operativos GMC</div>
+<div class="ctl"><div class="ctl-h"><span class="ctl-n">Base 2026 (MXN M)</span><span class="ctl-v" id="vg">52.7</span></div><input type="range" id="sg" min="30" max="120" step=".5" value="52.7" oninput="document.getElementById('vg').textContent=(+this.value).toFixed(1);rc()"></div>
+<div class="ctl"><div class="ctl-h"><span class="ctl-n">Crecimiento YoY</span><span class="ctl-v" id="vgg">3.8%</span></div><input type="range" id="sgg" min="0" max="12" step=".1" value="3.8" oninput="document.getElementById('vgg').textContent=(+this.value).toFixed(1)+'%';rc()"></div>
+
+<div class="slbl">Capacidad GMD</div>
+<div class="ctl"><div class="ctl-h"><span class="ctl-n">Máx. proyectos simultáneos</span><span class="ctl-v" id="vc">5</span></div><input type="range" id="sc" min="2" max="12" step="1" value="5" oninput="document.getElementById('vc').textContent=this.value;rc()"></div>
+
+</div><!-- /sidebar -->
+
+<!-- CONTENT -->
+<div class="cnt">
+<div class="kpis">
+  <div class="kpi"><div class="kpi-l">Equity total a llamar</div><div class="kpi-v" id="k1">—</div><div class="kpi-s">Proyectos activos</div></div>
+  <div class="kpi"><div class="kpi-l">Fees GMC 2026–2035</div><div class="kpi-v" id="k2">—</div><div class="kpi-s">Todos los activos</div></div>
+  <div class="kpi"><div class="kpi-l">Pico capital equity</div><div class="kpi-v" id="k3">—</div><div class="kpi-s" id="k3s">Año más exigente</div></div>
+  <div class="kpi"><div class="kpi-l">Breakeven GMC</div><div class="kpi-v" id="k4">—</div><div class="kpi-s">Primer año EBIT ≥ 0</div></div>
+  <div class="kpi"><div class="kpi-l">EBIT acumulado</div><div class="kpi-v" id="k5">—</div><div class="kpi-s">2026–2035</div></div>
+</div>
+
+<div class="tabs">
+  <div class="tab on" onclick="st('pipeline')">Pipeline</div>
+  <div class="tab" onclick="st('capital')">Flujo de capital</div>
+  <div class="tab" onclick="st('fees')">Fees GMC</div>
+  <div class="tab" onclick="st('resultados')">Resultados</div>
+</div>
+
+<div class="area">
+
+<!-- PIPELINE -->
+<div class="view on" id="v-pipeline">
+  <div class="callout">
+    <div><div class="ct" id="sc-t">—</div><div class="cs" id="sc-s">—</div></div>
+    <div style="font-size:12px;font-weight:500;color:var(--dark)" id="sc-w"></div>
+  </div>
+  <div class="card">
+    <div class="card-t">Timeline 2026–2035</div>
+    <div class="card-s">Proyectos en proceso (línea punteada) se muestran siempre. Nuevos proyectos se activan desde el sidebar.</div>
+    <div class="leg">
+      <div class="li"><div class="ld" style="background:var(--dark)"></div>Estructuración</div>
+      <div class="li"><div class="ld" style="background:var(--mid)"></div>Desarrollo</div>
+      <div class="li"><div class="ld" style="background:var(--off);border:1px solid var(--border)"></div>Predesarrollo</div>
+      <div class="li"><div class="ld" style="background:var(--light);border:1px dashed var(--mid)"></div>En proceso (ya iniciado)</div>
+    </div>
+    <div class="tl-wrap"><div class="tl" id="tl-pipe"></div></div>
+  </div>
+  <div class="two">
+    <div class="card">
+      <div class="card-t">Capital por proyecto</div>
+      <div class="card-s">Equity (oscuro) + deuda (gris) — proyectos activos</div>
+      <div class="bchart" id="c-proj"></div>
+    </div>
+    <div class="card">
+      <div class="card-t">Resumen pipeline</div>
+      <div class="card-s">Mix de financiamiento</div>
+      <table class="dt" id="t-mix"></table>
+    </div>
+  </div>
+</div>
+
+<!-- CAPITAL -->
+<div class="view" id="v-capital">
+  <div class="card">
+    <div class="card-t">Llamadas de capital — equity requerido por año</div>
+    <div class="card-s">¿Cuánto equity necesita GMD/familia cada año? Basado en perfil de llamadas de cada proyecto.</div>
+    <div class="bchart" style="height:140px" id="c-equity"></div>
+  </div>
+  <div class="card">
+    <div class="card-t">Desglose por proyecto</div>
+    <div class="card-s">Equity exigido año por año según perfil configurado</div>
+    <table class="dt" id="t-capital"></table>
+  </div>
+  <div class="card">
+    <div class="card-t">Fondeo externo (deuda) — por año de cierre</div>
+    <div class="card-s">Necesidad de negociación bancaria / co-inversión en el año de estructuración</div>
+    <div class="bchart" style="height:110px" id="c-deuda"></div>
+  </div>
+</div>
+
+<!-- FEES -->
+<div class="view" id="v-fees">
+  <div class="card">
+    <div class="card-t">Fees GMC por año — 2026 a 2035</div>
+    <div class="card-s">Fees activos del catálogo. Los fees potenciales se activan en el sidebar.</div>
+    <div class="leg">
+      <div class="li"><div class="ld" style="background:#1d1d1f"></div>Estructuración MIP</div>
+      <div class="li"><div class="ld" style="background:#555"></div>Adm. en proceso</div>
+      <div class="li"><div class="ld" style="background:#999"></div>Terceros</div>
+      <div class="li"><div class="ld" style="background:#ccc"></div>Fees potenciales activos</div>
+    </div>
+    <div class="bchart" style="height:140px" id="c-fees"></div>
+  </div>
+  <div class="card">
+    <div class="card-t">Desglose por tipo de fee</div>
+    <div class="card-s">Cada renglón del catálogo GMC — cuánto genera por año</div>
+    <table class="dt" id="t-fees"></table>
+  </div>
+</div>
+
+<!-- RESULTADOS -->
+<div class="view" id="v-resultados">
+  <div class="card">
+    <div class="card-t">EBIT GMC — Fees vs. Gastos operativos</div>
+    <div class="card-s">Negro = GMC rentable ese año · Gris claro = subsidio por otros ingresos del grupo</div>
+    <div class="bchart" style="height:140px" id="c-ebit"></div>
+  </div>
+  <div class="card">
+    <div class="card-t">Estado de resultados simplificado GMC</div>
+    <div class="card-s">Todos los renglones del catálogo activos vs. costos operativos</div>
+    <table class="dt" id="t-res"></table>
+  </div>
+  <div class="card">
+    <div class="card-t">Tabla de palancas — ¿qué mueve la aguja?</div>
+    <div class="card-s">Contribución acumulada 2026–2035 de cada línea de ingreso del catálogo</div>
+    <table class="dt" id="t-palancas"></table>
+  </div>
+</div>
+
+</div></div></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────
+const YS = [2026,2027,2028,2029,2030,2031,2032,2033,2034,2035];
+const YOPTS = YS.map(y=>`<option value="${y}">${y}</option>`).join('');
+
+const QUADRANTS = [
+  {val:'q-a',label:'Acelerar'},
+  {val:'q-s',label:'Secuenciar'},
+  {val:'q-m',label:'Mantener'},
+  {val:'q-p',label:'Postergar'},
+];
+const QOPTS = QUADRANTS.map(q=>`<option value="${q.val}">${q.label}</option>`).join('');
+
+// Proyectos NUEVOS en pipeline (activables)
+const NEW_PROJS = [
+  {id:'canada-urb',  name:'El Canadá (Urbanización e Infraestructura)', tag:'Escobedo · 667K m²',        defQ:'q-s', defYr:2027, defCt:800,  defEq:40, defMo:36, c:[40,40,20], defOn:true},
+  {id:'canada-liv',  name:'El Canadá (Liverpool)',                       tag:'Escobedo · Comercial',       defQ:'q-s', defYr:2028, defCt:1200, defEq:35, defMo:48, c:[25,40,35], defOn:true},
+  {id:'canada-a',    name:'El Canadá (Proyecto Tipo A)',                 tag:'Escobedo · Residencial',     defQ:'q-s', defYr:2029, defCt:900,  defEq:35, defMo:42, c:[30,40,30], defOn:false},
+  {id:'pfa',         name:'Plaza Fiesta Anáhuac',                        tag:'Anáhuac · Comercial',        defQ:'q-a', defYr:2026, defCt:600,  defEq:45, defMo:30, c:[40,35,25], defOn:true},
+  {id:'elaura-f2',   name:'Elaura Sur II (LTH F2)',                      tag:'Zona Tec · 27.7K m²',        defQ:'q-a', defYr:2027, defCt:1200, defEq:35, defMo:48, c:[30,40,30], defOn:false},
+  {id:'fusion',      name:'Fusión VO (JMGT-GGM)',                        tag:'Valle Oriente · 118.6K m²',  defQ:'q-a', defYr:2026, defCt:1800, defEq:30, defMo:54, c:[25,45,30], defOn:true},
+  {id:'lumaris-ii',  name:'Lumaris II — ZUL',                            tag:'Valle Oriente · m² x def.',  defQ:'q-m', defYr:2028, defCt:900,  defEq:35, defMo:48, c:[30,40,30], defOn:false},
+  {id:'calderon',    name:'Terreno Fam. Calderón',                       tag:'Valle Oriente · 27.3K m²',   defQ:'q-p', defYr:2030, defCt:600,  defEq:40, defMo:36, c:[40,40,20], defOn:false},
+  {id:'zul',         name:'Zul — Master Plan',                           tag:'Valle Oriente · 99.3K m²',   defQ:'q-m', defYr:2029, defCt:2000, defEq:30, defMo:60, c:[20,40,40], defOn:false},
+];
+
+// Proyectos EN PROCESO (siempre visibles, no tienen toggle de on/off)
+const IP_PROJS = [
+  {id:'elaura-f1', name:'Elaura Sur F1',  tag:'Pre-Desarrollo · Zona Tec',  phase:'pre',    yr:2025, endYr:2026, ct:600,  eq:35, mo:24},
+  {id:'lumaris',   name:'Lumaris',         tag:'Desarrollo · Valle Oriente', phase:'dev',    yr:2024, endYr:2027, ct:1400, eq:30, mo:36},
+  {id:'olma',      name:'Olma',            tag:'Cierre · Valle Oriente',     phase:'cierre', yr:2023, endYr:2026, ct:500,  eq:40, mo:12},
+];
+
+const PS = {};  // active state for new projects
+NEW_PROJS.forEach(p => PS[p.id] = p.defOn);
+const EX = {};
+YS.forEach(y => EX[y] = 0);
+const FS = {estructura:true,'adm-dev':true,negoc:false,aap:false,res:false,rot:false,terr:false,cta:false};
+
+// ── BUILD SIDEBAR ────────────────────────────────────────────
+function buildSidebar(){
+  // New projects
+  const nc = document.getElementById('proj-new');
+  NEW_PROJS.forEach(p=>{
+    const defSel = p.defQ;
+    const yrSel = YS.map(y=>`<option value="${y}"${y===p.defYr?' selected':''}>${y}</option>`).join('');
+    nc.innerHTML+=`
+    <div class="pcard${p.defOn?' active':''}" id="pc-${p.id}">
+      <div class="ph" onclick="tc('${p.id}')">
+        <div style="flex:1;min-width:0">
+          <div class="pname" style="font-size:11px">${p.name}</div>
+          <div class="ptag">${p.tag}</div>
+        </div>
+        <div class="pr">
+          <select class="qsel ${defSel}" id="qs-${p.id}"
+            onchange="updateQ('${p.id}')" onclick="event.stopPropagation()">
+            ${QUADRANTS.map(q=>`<option value="${q.val}"${q.val===defSel?' selected':''}>${q.label}</option>`).join('')}
+          </select>
+          <div class="tgl${p.defOn?' on':''}" id="tg-${p.id}"></div>
+        </div>
+      </div>
+      <div class="pb">
+        <div class="pfl">Año de estructuración</div>
+        <select class="pi" id="yr-${p.id}" onchange="rc()">${yrSel}</select>
+        <div class="pfl">Capital (M) · % Equity · Meses dev.</div>
+        <div class="grid3">
+          <div><input type="number" class="pi" id="ct-${p.id}" value="${p.defCt}" min="50" oninput="rc()"><div class="pi-hint">Capital M</div></div>
+          <div><input type="number" class="pi" id="eq-${p.id}" value="${p.defEq}" min="5" max="95" oninput="rc()"><div class="pi-hint">% Equity</div></div>
+          <div><input type="number" class="pi" id="mo-${p.id}" value="${p.defMo}" min="6" max="144" oninput="rc()"><div class="pi-hint">Meses</div></div>
+        </div>
+        <div class="pfl">Llamadas de capital % (Año 1 / 2 / 3)</div>
+        <div class="grid3">
+          <div><input type="number" class="pi" id="c1-${p.id}" value="${p.c[0]}" min="0" max="100" oninput="rc()"><div class="pi-hint">Año 1</div></div>
+          <div><input type="number" class="pi" id="c2-${p.id}" value="${p.c[1]}" min="0" max="100" oninput="rc()"><div class="pi-hint">Año 2</div></div>
+          <div><input type="number" class="pi" id="c3-${p.id}" value="${p.c[2]}" min="0" max="100" oninput="rc()"><div class="pi-hint">Año 3</div></div>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  // In-progress projects
+  const ic = document.getElementById('proj-ip');
+  IP_PROJS.forEach(p=>{
+    const phLabel = {pre:'Pre-Desarrollo',dev:'En Desarrollo',cierre:'En Cierre'}[p.phase];
+    ic.innerHTML+=`
+    <div class="pcard in-progress active" id="pc-${p.id}">
+      <div class="ph" onclick="toggleIP('${p.id}')">
+        <div style="flex:1;min-width:0">
+          <div class="pname" style="font-size:11px">${p.name}</div>
+          <div class="ptag">${p.tag}</div>
+        </div>
+        <div class="pr">
+          <span class="ip-tag">${phLabel}</span>
+        </div>
+      </div>
+      <div class="pb">
+        <div class="pfl">Capital (M) · % Equity</div>
+        <div class="grid3">
+          <div><input type="number" class="pi" id="ct-${p.id}" value="${p.ct}" min="50" oninput="rc()"><div class="pi-hint">Capital M</div></div>
+          <div><input type="number" class="pi" id="eq-${p.id}" value="${p.eq}" min="5" max="95" oninput="rc()"><div class="pi-hint">% Equity</div></div>
+          <div><input type="number" class="pi" id="mo-${p.id}" value="${p.mo}" min="1" max="120" oninput="rc()"><div class="pi-hint">Meses restantes</div></div>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  // Ext sliders
+  const ec = document.getElementById('ext-sl');
+  YS.forEach(y=>{
+    ec.innerHTML+=`<div class="ctl"><div class="ctl-h"><span class="ctl-n">${y}</span><span class="ctl-v" id="ve${y}">0 proy.</span></div>
+    <input type="range" min="0" max="5" step="1" value="0"
+      oninput="EX[${y}]=+this.value;document.getElementById('ve${y}').textContent=this.value+' proy.';rc()"></div>`;
+  });
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+function tc(id){
+  PS[id]=!PS[id];
+  document.getElementById('tg-'+id).classList.toggle('on',PS[id]);
+  document.getElementById('pc-'+id).classList.toggle('active',PS[id]);
+  rc();
+}
+function toggleIP(id){
+  const el=document.getElementById('pc-'+id);
+  el.classList.toggle('active');
+  rc();
+}
+function updateQ(id){
+  const sel=document.getElementById('qs-'+id);
+  sel.className='qsel '+sel.value;
+}
+function tFee(k){
+  FS[k]=!FS[k];
+  document.getElementById('ftg-'+k).classList.toggle('on',FS[k]);
+  rc();
+}
+function gv(id){return parseFloat(document.getElementById(id)?.value)||0;}
+function gi(id){return parseInt(document.getElementById(id)?.value)||0;}
+
+const fm=v=>{
+  const a=Math.abs(v);
+  if(a>=1e9) return (v<0?'(':'')+'$'+(a/1e9).toFixed(1)+'B'+(v<0?')':'');
+  if(a>=1e6) return (v<0?'(':'')+'$'+Math.round(a/1e6)+'M'+(v<0?')':'');
+  if(a>=1e3) return (v<0?'(':'')+'$'+Math.round(a/1e3)+'K'+(v<0?')':'');
+  return '$0';
+};
+const fmPct=v=>(v>=0?'+':'')+v.toFixed(1)+'%';
+
+function getNewProj(p){
+  const yr=gi('yr-'+p.id);
+  const ct=gv('ct-'+p.id)*1e6;
+  const eqPct=gv('eq-'+p.id)/100;
+  const equity=ct*eqPct;
+  const mo=gi('mo-'+p.id);
+  const devYrs=Math.ceil(mo/12);
+  const r=[gv('c1-'+p.id),gv('c2-'+p.id),gv('c3-'+p.id)];
+  const tot=r.reduce((a,b)=>a+b,0)||100;
+  return{id:p.id,name:p.name,active:PS[p.id],yr,ct,equity,deuda:ct-equity,mo,devYrs,calls:r.map(v=>v/tot),inProgress:false};
+}
+function getIPProj(p){
+  const ct=gv('ct-'+p.id)*1e6;
+  const eqPct=gv('eq-'+p.id)/100;
+  const equity=ct*eqPct;
+  const mo=gi('mo-'+p.id);
+  const devYrs=Math.ceil(mo/12);
+  const visible=document.getElementById('pc-'+p.id)?.classList.contains('active');
+  return{id:p.id,name:p.name,active:visible,yr:p.yr,endYr:p.endYr,ct,equity,deuda:ct-equity,mo,devYrs,calls:[.4,.35,.25],phase:p.phase,inProgress:true};
+}
+
+// ── MAIN RECALC ───────────────────────────────────────────────
+function rc(){
+  const fStr=gv('fv-estructura')/100;
+  const fAdm=gv('fv-adm-dev')/100;
+  const opexBase=gv('sg')*1e6;
+  const opexG=gv('sgg')/100;
+  const cap=gi('sc');
+  const bFGM=gv('sb1')*1e6, bRes=gv('sb2')*1e6, bCta=gv('sb3')*1e6;
+
+  const newProjs=NEW_PROJS.map(p=>getNewProj(p));
+  const ipProjs=IP_PROJS.map(p=>getIPProj(p));
+  const allActive=[...newProjs.filter(p=>p.active), ...ipProjs.filter(p=>p.active)];
+  const newActive=newProjs.filter(p=>p.active);
+
+  // Capital calls
+  const eqByY={}, dtByY={};
+  YS.forEach(y=>{eqByY[y]=0;dtByY[y]=0;});
+  allActive.forEach(p=>{
+    for(let i=0;i<Math.min(3,p.devYrs);i++){
+      const cy=p.yr+i;
+      if(YS.includes(cy)) eqByY[cy]+=p.equity*p.calls[i];
+    }
+    if(YS.includes(p.yr)) dtByY[p.yr]+=p.deuda;
+  });
+
+  // Fees
+  const fees={};
+  YS.forEach((y,i)=>{
+    let str=0,adm=0,ext=0,other=0;
+    allActive.forEach(p=>{
+      if(!p.inProgress){
+        if(p.yr===y&&FS['estructura']) str+=p.equity*fStr;
+        if(y>p.yr&&y<=p.yr+p.devYrs&&FS['adm-dev']) adm+=p.equity*fAdm;
+      } else {
+        // in-progress: admin fees on remaining dev years
+        if(y<=p.endYr&&FS['adm-dev']) adm+=p.equity*fAdm*0.5;
+      }
+    });
+    ext=(EX[y]||0)*600e6*0.35*fStr;
+    // Potential fees (annual recurring)
+    if(FS['rot'])  other+=bFGM*(gv('fv-rot')/100);
+    if(FS['terr']) other+=bRes*(gv('fv-terr')/100);
+    if(FS['cta'])  other+=bCta*(gv('fv-cta')/100);
+    if(FS['res'])  other+=bFGM*0.03*(gv('fv-res')/100);
+    // One-time at delivery
+    allActive.forEach(p=>{
+      if(!p.inProgress){
+        if(FS['aap']&&y===p.yr+p.devYrs) other+=p.ct*(gv('fv-aap')/100);
+        if(FS['negoc']&&y===p.yr) other+=p.ct*(gv('fv-negoc')/100)*0.05;
+      }
+    });
+    fees[y]={str,adm,ext,other,total:str+adm+ext+other};
+  });
+
+  // Opex + EBIT
+  const opex={}, ebit={};
+  let be='—', ebitAcum=0;
+  YS.forEach((y,i)=>{
+    opex[y]=opexBase*Math.pow(1+opexG,i);
+    ebit[y]=fees[y].total-opex[y];
+    ebitAcum+=ebit[y];
+    if(ebit[y]>=0&&be==='—') be=String(y);
+  });
+
+  // Capacity
+  const capY={};
+  YS.forEach(y=>{
+    let mip=0;
+    allActive.forEach(p=>{if(y>=p.yr&&y<p.yr+(p.devYrs||1))mip++;});
+    const ext=EX[y]||0,tot=mip+ext;
+    capY[y]={mip,ext,tot,pct:Math.round((tot/cap)*100)};
+  });
+
+  // KPIs
+  document.getElementById('k1').textContent=fm(allActive.reduce((s,p)=>s+p.equity,0));
+  document.getElementById('k2').textContent=fm(YS.reduce((s,y)=>s+fees[y].total,0));
+  const peakY=YS.reduce((a,y)=>eqByY[y]>eqByY[a]?y:a,YS[0]);
+  document.getElementById('k3').textContent=fm(eqByY[peakY]);
+  document.getElementById('k3s').textContent='Pico en '+peakY;
+  document.getElementById('k4').textContent=be;
+  const k5el=document.getElementById('k5');
+  k5el.textContent=fm(ebitAcum);
+  k5el.className='kpi-v'+(ebitAcum<0?' warn':'');
+
+  // Callout
+  document.getElementById('sc-t').textContent=allActive.length+' proyecto'+(allActive.length!==1?'s':'')+' en el modelo';
+  document.getElementById('sc-s').textContent='Nuevos: '+newActive.length+' · En proceso: '+ipProjs.filter(p=>p.active).length+' · Capital total: '+fm(allActive.reduce((s,p)=>s+p.ct,0));
+  const ov=YS.find(y=>capY[y].pct>100);
+  document.getElementById('sc-w').textContent=ov?'⚠ Capacidad excedida en '+ov:'';
+
+  // Renders
+  renderPipeline(newActive, ipProjs.filter(p=>p.active), capY, cap);
+  renderProjBars(newActive);
+  renderMixTable(newActive);
+  renderCapitalView(allActive, eqByY, dtByY);
+  renderFeesView(fees, newActive, fStr, fAdm);
+  renderResultados(fees, opex, ebit, ebitAcum);
+}
+
+// ── RENDERS ────────────────────────────────────────────────────
+function renderPipeline(newActive, ipActive, capY, cap){
+  const ncols=YS.length;
+  const cols=`160px repeat(${ncols},1fr)`;
+  let h=`<div class="tl-hd" style="grid-template-columns:${cols}">
+    <div class="thc" style="text-align:left">Proyecto</div>
+    ${YS.map(y=>`<div class="thc">${y}</div>`).join('')}
+  </div><div class="tl-bd">`;
+
+  // In-progress first
+  ipActive.forEach(p=>{
+    h+=`<div class="tl-row ip-row" style="grid-template-columns:${cols}">
+      <div class="tc"><div class="tnm">${p.name}</div><div class="ttag">${p.phase==='pre'?'Pre-desarrollo':p.phase==='dev'?'En desarrollo':'En cierre'}</div></div>`;
+    YS.forEach(y=>{
+      let pill='';
+      const inRange = y>=p.yr&&y<=p.endYr;
+      if(inRange){
+        if(p.phase==='pre') pill=`<span class="pill p-pre">PRE</span>`;
+        else if(p.phase==='dev') pill=`<span class="pill p-ip">DEV ●</span>`;
+        else pill=`<span class="pill p-cierre">CIERRE</span>`;
+      }
+      h+=`<div class="tc" style="padding:3px">${pill}</div>`;
+    });
+    h+=`</div>`;
+  });
+
+  // New projects
+  if(!newActive.length&&!ipActive.length){
+    h+=`<div style="padding:18px;font-size:12px;color:var(--subtle)">Activa al menos un proyecto en el sidebar</div>`;
+  } else {
+    newActive.forEach(p=>{
+      h+=`<div class="tl-row" style="grid-template-columns:${cols}">
+        <div class="tc"><div class="tnm">${p.name}</div><div class="ttag">${p.mo}m · ${fm(p.ct)}</div></div>`;
+      YS.forEach(y=>{
+        let pill='';
+        if(y<p.yr)              pill=`<span class="pill p-pre">PREV</span>`;
+        else if(y===p.yr)       pill=`<span class="pill p-str">ESTRUC.</span>`;
+        else if(y>p.yr&&y<p.yr+p.devYrs) pill=`<span class="pill p-dev">DEV</span>`;
+        else if(y===p.yr+p.devYrs)        pill=`<span class="pill p-end">FIN</span>`;
+        h+=`<div class="tc" style="padding:3px">${pill}</div>`;
+      });
+      h+=`</div>`;
+    });
+  }
+
+  // Ext row
+  if(YS.some(y=>EX[y]>0)){
+    h+=`<div class="tl-row" style="grid-template-columns:${cols}">
+      <div class="tc"><div class="tnm">Estruc. Terceros</div></div>`;
+    YS.forEach(y=>{
+      const n=EX[y]||0;
+      h+=`<div class="tc" style="padding:3px">${n?`<span class="pill p-str">${n}</span>`:''}</div>`;
+    });
+    h+=`</div>`;
+  }
+
+  // Capacity row
+  h+=`<div class="tl-row" style="grid-template-columns:${cols};background:var(--off)">
+    <div class="tc" style="font-size:10px;font-weight:600;color:var(--subtle)">Cap. GMD</div>`;
+  YS.forEach(y=>{
+    const p=capY[y],ov=p.pct>100;
+    h+=`<div class="tc" style="text-align:center;font-size:10px;font-weight:700;color:${ov?'var(--dark)':'var(--subtle)'}">${p.tot}/${cap}</div>`;
+  });
+  h+=`</div></div>`;
+  document.getElementById('tl-pipe').innerHTML=h;
+}
+
+function renderProjBars(active){
+  const c=document.getElementById('c-proj');c.innerHTML='';
+  if(!active.length) return;
+  const max=Math.max(...active.map(p=>p.ct));
+  active.forEach(p=>{
+    const g=document.createElement('div');g.className='bg';
+    const w=document.createElement('div');w.className='bw';
+    [[p.equity,'#1d1d1f',`Equity: ${fm(p.equity)}`],[p.deuda,'#c7c7cc',`Deuda: ${fm(p.deuda)}`]].forEach(([v,cl,tip])=>{
+      const b=document.createElement('div');b.className='bb';
+      b.style.cssText=`background:${cl};width:44%;height:${Math.max(v>0?2:0,(v/max)*120)}px`;
+      b.setAttribute('data-tip',tip);w.appendChild(b);
+    });
+    g.appendChild(w);
+    const l=document.createElement('div');l.className='bl';l.textContent=p.name.split(' ')[0]+' '+p.name.split('(')[1]?.replace(')','').split(' ')[0]||'';g.appendChild(l);
+    const vv=document.createElement('div');vv.className='bv';vv.textContent=fm(p.ct);g.appendChild(vv);
+    c.appendChild(g);
+  });
+}
+
+function renderMixTable(active){
+  const t=document.getElementById('t-mix');
+  let h='<thead><tr><th>Proyecto</th><th>Capital</th><th>Equity</th><th>Deuda</th><th>Meses</th></tr></thead><tbody>';
+  let tc=0,te=0;
+  active.forEach(p=>{
+    h+=`<tr><td>${p.name}</td><td>${fm(p.ct)}</td><td>${fm(p.equity)} (${Math.round(p.equity/p.ct*100)}%)</td><td>${fm(p.deuda)}</td><td>${p.mo}</td></tr>`;
+    tc+=p.ct;te+=p.equity;
+  });
+  h+=`<tr class="tot"><td>Total activos nuevos</td><td>${fm(tc)}</td><td>${fm(te)} (${tc?Math.round(te/tc*100):0}%)</td><td>${fm(tc-te)}</td><td>—</td></tr></tbody>`;
+  t.innerHTML=h;
+}
+
+function mkBars(cid,data,maxOverride,maxH){
+  const c=document.getElementById(cid);if(!c)return;c.innerHTML='';
+  const max=maxOverride||Math.max(...data.map(d=>d.segs.reduce((s,sg)=>s+sg.v,0)),1);
+  data.forEach(d=>{
+    const g=document.createElement('div');g.className='bg';
+    const w=document.createElement('div');w.className='bw';
+    d.segs.filter(sg=>sg.v>0).forEach(sg=>{
+      const b=document.createElement('div');b.className='bb';
+      b.style.cssText=`background:${sg.cl};width:${Math.floor(90/d.segs.filter(s=>s.v>0).length)}%;height:${Math.max(2,(sg.v/max)*(maxH||120))}px`;
+      b.setAttribute('data-tip',sg.tip);w.appendChild(b);
+    });
+    g.appendChild(w);
+    const l=document.createElement('div');l.className='bl';l.textContent=d.label;g.appendChild(l);
+    const vv=document.createElement('div');vv.className='bv';
+    vv.textContent=d.val||'—';
+    if(d.neg) vv.style.color='var(--mid)';
+    g.appendChild(vv);
+    c.appendChild(g);
+  });
+}
+
+function renderCapitalView(allActive, eqByY, dtByY){
+  mkBars('c-equity',YS.map(y=>({
+    label:String(y),val:eqByY[y]>0?fm(eqByY[y]):'—',
+    segs:[{v:eqByY[y],cl:'#1d1d1f',tip:`Equity req. ${y}: ${fm(eqByY[y])}`}]
+  })),undefined,130);
+
+  const t=document.getElementById('t-capital');
+  let h=`<thead><tr><th>Proyecto</th>${YS.map(y=>`<th>${y}</th>`).join('')}<th>Total equity</th></tr></thead><tbody>`;
+  allActive.forEach(p=>{
+    let tot=0;
+    h+=`<tr><td>${p.name}</td>`;
+    YS.forEach(y=>{
+      let v=0;
+      for(let i=0;i<Math.min(3,p.devYrs);i++) if(p.yr+i===y) v=p.equity*p.calls[i];
+      tot+=v;
+      h+=`<td class="${v>0?'pos':''}">${v>0?fm(v):'—'}</td>`;
+    });
+    h+=`<td>${fm(tot)}</td></tr>`;
+  });
+  h+=`<tr class="tot"><td>Total equity</td>${YS.map(y=>`<td>${eqByY[y]>0?fm(eqByY[y]):'—'}</td>`).join('')}<td>${fm(allActive.reduce((s,p)=>s+p.equity,0))}</td></tr></tbody>`;
+  t.innerHTML=h;
+
+  mkBars('c-deuda',YS.map(y=>({
+    label:String(y),val:dtByY[y]>0?fm(dtByY[y]):'—',
+    segs:[{v:dtByY[y],cl:'#c7c7cc',tip:`Fondeo externo ${y}: ${fm(dtByY[y])}`}]
+  })),undefined,100);
+}
+
+function renderFeesView(fees,active,feeStr,feeAdm){
+  mkBars('c-fees',YS.map(y=>({
+    label:String(y),val:fm(fees[y].total),
+    segs:[
+      {v:fees[y].str,cl:'#1d1d1f',tip:`Estruc. MIP ${y}: ${fm(fees[y].str)}`},
+      {v:fees[y].adm,cl:'#555',   tip:`Adm. desarrollo ${y}: ${fm(fees[y].adm)}`},
+      {v:fees[y].ext,cl:'#999',   tip:`Terceros ${y}: ${fm(fees[y].ext)}`},
+      {v:fees[y].other,cl:'#ccc', tip:`Otros servicios ${y}: ${fm(fees[y].other)}`},
+    ]
+  })),undefined,130);
+
+  const t=document.getElementById('t-fees');
+  let h=`<thead><tr><th>Concepto</th>${YS.map(y=>`<th>${y}</th>`).join('')}<th>Total</th></tr></thead><tbody>`;
+  h+=`<tr class="sep"><td colspan="${YS.length+2}">Fees MIP — aplican a proyectos del pipeline</td></tr>`;
+  [['Estructuración proyectos (% equity al cierre)','str'],
+   ['Adm. en proceso (% equity anual durante dev.)','adm'],
+   ['Estructuración a terceros','ext'],
+  ].forEach(([l,k])=>{
+    const tot=YS.reduce((s,y)=>s+fees[y][k],0);
+    h+=`<tr><td>${l}</td>${YS.map(y=>`<td class="${fees[y][k]>0?'pos':''}">${fees[y][k]>0?fm(fees[y][k]):'—'}</td>`).join('')}<td>${fm(tot)}</td></tr>`;
+  });
+  if(YS.some(y=>fees[y].other>0)){
+    h+=`<tr class="sep"><td colspan="${YS.length+2}">Fees potenciales activos</td></tr>`;
+    h+=`<tr><td>Adm. FGM + reserva + cuentas + entrega activos</td>${YS.map(y=>`<td class="${fees[y].other>0?'pos':''}">${fees[y].other>0?fm(fees[y].other):'—'}</td>`).join('')}<td>${fm(YS.reduce((s,y)=>s+fees[y].other,0))}</td></tr>`;
+  }
+  h+=`<tr class="tot"><td>Total Fees GMC</td>${YS.map(y=>`<td>${fm(fees[y].total)}</td>`).join('')}<td>${fm(YS.reduce((s,y)=>s+fees[y].total,0))}</td></tr>`;
+  h+='</tbody>';
+  t.innerHTML=h;
+}
+
+function renderResultados(fees,opex,ebit,ebitAcum){
+  mkBars('c-ebit',YS.map(y=>({
+    label:String(y),val:fm(ebit[y]),neg:ebit[y]<0,
+    segs:[{v:Math.abs(ebit[y]),cl:ebit[y]>=0?'#1d1d1f':'#e8e8ed',tip:`EBIT ${y}: ${fm(ebit[y])}`}]
+  })),undefined,130);
+
+  const t=document.getElementById('t-res');
+  let h=`<thead><tr><th>Concepto</th>${YS.map(y=>`<th>${y}</th>`).join('')}<th>Total</th></tr></thead><tbody>`;
+  h+=`<tr class="sep"><td colspan="${YS.length+2}">Ingresos GMC</td></tr>`;
+  [['Fee estructuración MIP','str'],['Fee adm. desarrollo','adm'],['Fee terceros','ext'],['Otros servicios catálogo','other']].forEach(([l,k])=>{
+    const tot=YS.reduce((s,y)=>s+fees[y][k],0);
+    if(tot===0)return;
+    h+=`<tr><td>${l}</td>${YS.map(y=>`<td>${fees[y][k]>0?fm(fees[y][k]):'—'}</td>`).join('')}<td>${fm(tot)}</td></tr>`;
+  });
+  h+=`<tr class="tot"><td>Total Ingresos</td>${YS.map(y=>`<td>${fm(fees[y].total)}</td>`).join('')}<td>${fm(YS.reduce((s,y)=>s+fees[y].total,0))}</td></tr>`;
+  h+=`<tr class="sep"><td colspan="${YS.length+2}">Gastos Operativos GMC</td></tr>`;
+  h+=`<tr><td>Gastos fijos</td>${YS.map(y=>`<td>${fm(-opex[y])}</td>`).join('')}<td>${fm(-YS.reduce((s,y)=>s+opex[y],0))}</td></tr>`;
+  h+=`<tr class="tot"><td>EBIT</td>${YS.map(y=>`<td class="${ebit[y]>=0?'pos':'neg'}">${fm(ebit[y])}</td>`).join('')}<td class="${ebitAcum>=0?'pos':'neg'}">${fm(ebitAcum)}</td></tr>`;
+  h+=`<tr><td>Margen EBIT</td>${YS.map(y=>{
+    const mg=fees[y].total>0?(ebit[y]/fees[y].total*100):null;
+    return`<td class="${mg>=0?'pos':'neg'}">${mg!==null?fmPct(mg):'—'}</td>`;
+  }).join('')}<td>—</td></tr>`;
+  h+='</tbody>';
+  t.innerHTML=h;
+
+  // Palancas
+  const tp=document.getElementById('t-palancas');
+  const rows=[
+    {l:'Fee estructuración MIP',k:'str',mip:true},
+    {l:'Fee adm. desarrollo (MIP)',k:'adm',mip:true},
+    {l:'Estructuración a terceros',k:'ext',mip:false},
+    {l:'Adm. cuentas de inversión',k:'other',mip:false},
+    {l:'Adm. activos rotativos',k:'other',mip:false},
+    {l:'Comercialización activos',k:'other',mip:false},
+    {l:'Negociación FGM (éxito)',k:'other',mip:false},
+  ];
+  let h2=`<thead><tr><th>Palanca de ingreso</th><th>MIP</th><th>EBIT contrib. acum.</th><th>Estado</th></tr></thead><tbody>`;
+  rows.forEach(r=>{
+    const contrib=r.k?YS.reduce((s,y)=>s+fees[y][r.k],0):0;
+    const stateKey=r.l.includes('estructuración MIP')?'estructura':r.l.includes('desarrollo')?'adm-dev':r.l.includes('terceros')?'ext':null;
+    const on=stateKey?FS[stateKey]||!stateKey:Object.values(FS).some(Boolean);
+    h2+=`<tr>
+      <td>${r.l}</td>
+      <td style="text-align:center">${r.mip?'✓':'—'}</td>
+      <td class="${contrib>0?'pos':''}">${contrib>0?fm(contrib):'—'}</td>
+      <td style="text-align:center;font-size:10px;color:var(--subtle)">${on?'Activo':'Inactivo'}</td>
+    </tr>`;
+  });
+  h2+='</tbody>';
+  tp.innerHTML=h2;
+}
+
+function st(n){
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',['pipeline','capital','fees','resultados'][i]===n));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id==='v-'+n));
+}
+
+buildSidebar();
+rc();
+</script>
+</body>
+</html>
